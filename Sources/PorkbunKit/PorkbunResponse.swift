@@ -6,16 +6,21 @@
 //
 
 extension Porkbun {
-    public protocol Response : Codable {
-        /// A status indicating whether or not the command was successfuly processed.
+    public enum Response {
+    }
+    public protocol ResponseProtocol : Codable {
+        /// Status indicating whether or not the command was successfully processed.
         var status : String { get }
 
-        /// The error message.
+        /// Error message.
         var message : String? { get }
     }
 }
 
-extension Porkbun.Response {
+extension Porkbun.ResponseProtocol {
+    /// Whether the `status` equals `SUCCESS`.
     public var wasSuccess : Bool { status == "SUCCESS" }
-    public var wasError : Bool { status == "ERROR" }
+
+    /// Whether the `status` equals `ERROR`.
+    public var wasError : Bool   { status == "ERROR" }
 }

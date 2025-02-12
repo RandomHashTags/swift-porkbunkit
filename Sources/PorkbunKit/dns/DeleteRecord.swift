@@ -42,7 +42,7 @@ extension Porkbun.DNS {
 
 // MARK: Response
 extension Porkbun.DNS.DeleteRecord {
-    public struct Response : Porkbun.Response {
+    public struct Response : Porkbun.ResponseProtocol {
         public let status:String
         public let message:String?
     }

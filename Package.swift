@@ -11,13 +11,19 @@ let package = Package(
             targets: ["PorkbunKit"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/swift-server/async-http-client", from: "1.25.1")
+    ],
     targets: [
         .target(
-            name: "PorkbunKit"
+            name: "PorkbunKit",
+            dependencies: [
+                .product(name: "AsyncHTTPClient", package: "async-http-client")
+            ]
         ),
         .testTarget(
             name: "PorkbunKitTests",
             dependencies: ["PorkbunKit"]
-        ),
+        )
     ]
 )

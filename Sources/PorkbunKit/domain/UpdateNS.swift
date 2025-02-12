@@ -30,7 +30,7 @@ extension Porkbun.Domain {
 
 // MARK: Response
 extension Porkbun.Domain.UpdateNS {
-    public struct Response : Porkbun.Response {
+    public struct Response : Porkbun.ResponseProtocol {
         public let status:String
         public let message:String?
     }

@@ -14,8 +14,8 @@ extension Porkbun {
         public let expireDate:String
         public let securityLock:String // bool
         public let whoisPrivacy:String // bool
-        public let autoRenew:UInt8 // bool
+        public let autoRenew:String // bool
         public let notLocal:UInt8 // bool
-        public let labels:[PorkbunLabel]
+        public let labels:[Label]?
     }
 }

@@ -7,6 +7,5 @@
 
 extension Porkbun {
     public protocol Request : Codable {
-        var endpointSlug : String { get }
     }
 }

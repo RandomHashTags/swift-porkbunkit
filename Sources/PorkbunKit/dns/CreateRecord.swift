@@ -6,56 +6,21 @@
 //
 
 extension Porkbun.DNS {
-    /// Create a DNS record.
-    public struct CreateRecord : Porkbun.AuthenticationRequired {
-        public let secretapikey:String
-        public let apikey:String
+    struct CreateRecord : Porkbun.AuthenticationRequired {
+        let apikey:String
+        let secretapikey:String
 
-        /// Your domain.
-        public let domain:String
-
-        /// The subdomain for the record being created, not including the domain itself. Leave blank to create a record on the root domain. Use `*` to create a wildcard record.
-        public let name:String?
-
-        /// The type of record being created.
-        public let type:RecordType
-
-        /// The answer content for the record. Please see the DNS management popup from the domain management console for proper formatting of each record type.
-        public let content:String
-
-        /// The time to live in seconds for the record. The minimum and the default is 600 seconds.
-        public let ttl:String?
-
-        /// The priority of the record for those that support it.
-        public let prio:String?
-        
-        public init(
-            apiKey: String,
-            secretAPIKey: String,
-            domain: String,
-            name: String? = nil,
-            type: RecordType,
-            content: String,
-            ttl: Int? = nil,
-            prio: String? = nil
-        ) {
-            self.apikey = apiKey
-            self.secretapikey = secretAPIKey
-            self.domain = domain
-            self.name = name
-            self.type = type
-            self.content = content
-            self.ttl = ttl?.description
-            self.prio = prio
-        }
-
-        public var endpointSlug : String { "dns/create/" + domain }
+        let name:String?
+        let type:RecordType
+        let content:String
+        let ttl:String?
+        let prio:String?
     }
 }
 
 // MARK: Response
-extension Porkbun.DNS.CreateRecord {
-    public struct Response : Porkbun.Response {
+extension Porkbun.Response {
+    public struct DNSCreateRecord : Porkbun.ResponseProtocol {
         public let status:String
         public let message:String?
 
