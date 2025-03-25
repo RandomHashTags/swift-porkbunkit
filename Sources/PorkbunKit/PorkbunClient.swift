@@ -40,12 +40,11 @@ public struct PorkbunClient : Encodable {
         return try await authenticatedResponse(forSlug: slug, body: .bytes(buffer))
     }
     func authenticatedResponse<T : Decodable>(forSlug slug: String, body: HTTPClientRequest.Body) async throws -> T? {
-        var request:HTTPClientRequest = HTTPClientRequest(url: "https://api.porkbun.com/api/json/v3/" + slug)
+        var request = HTTPClientRequest(url: "https://api.porkbun.com/api/json/v3/" + slug)
         request.method = .POST
         request.body = body
-        let result:HTTPClientResponse = try await HTTPClient.shared.execute(request, timeout: .seconds(30))
-        let r:ByteBuffer = try await result.body.collect(upTo: Int.max)
-        print(String(buffer: r))
+        let result = try await HTTPClient.shared.execute(request, timeout: .seconds(30))
+        let r = try await result.body.collect(upTo: Int.max)
         return try r.getJSONDecodable(T.self, at: r.readerIndex, length: r.readableBytes)
     }
 }
@@ -139,6 +138,22 @@ extension PorkbunClient {
     }
 }
 
+// MARK: DeleteRecord
+extension PorkbunClient {
+    /// Delete a specific DNS record.
+    /// 
+    /// - Parameters:
+    ///   - domain: Domain you want to delete the DNS record under.
+    ///   - id: Record ID you want to delete.
+    public func deleteRecord(
+        forDomain domain: String,
+        id: Int
+    ) async throws -> Porkbun.Response.DNSDeleteRecord? {
+        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.DNS.DeleteRecord(apikey: apikey, secretapikey: secretapikey, domain: domain, recordID: id)))
+        return try await authenticatedResponse(forSlug: "dns/delete/" + domain + "/\(id)", buffer: buffer)
+    }
+}
+
 // MARK: Check Domain
 extension PorkbunClient {
     /// Check a domain's availability.
@@ -149,7 +164,7 @@ extension PorkbunClient {
     public func checkDomain(
         domain: String
     ) async throws -> Porkbun.Response.CheckDomain? {
-        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.Domain.Check(apiKey: apikey, secretAPIKey: secretapikey, domain: domain)))
+        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.Domain.Check(apikey: apikey, secretapikey: secretapikey, domain: domain)))
         return try await authenticatedResponse(forSlug: "domain/checkDomain/" + domain, buffer: buffer)
     }
 }

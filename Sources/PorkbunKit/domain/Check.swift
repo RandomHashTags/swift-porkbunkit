@@ -2,20 +2,15 @@
 //  Check.swift
 //
 //
-//  Created by Evan Anderson on 2/11/25.
+//  Created by Evan Anderson on 3/25/25.
 //
 
 extension Porkbun.Domain {
     struct Check : Porkbun.AuthenticationRequired {
-        let secretapikey:String
         let apikey:String
-        let domain:String
+        let secretapikey:String
 
-        init(apiKey: String, secretAPIKey: String, domain: String) {
-            self.apikey = apiKey
-            self.secretapikey = secretAPIKey
-            self.domain = domain
-        }
+        let domain:String
     }
 }
 
