@@ -11,20 +11,29 @@ import NIOCore
 import NIOFoundationCompat
 
 // MARK: PorkbunClient
-public struct PorkbunClient : Codable {
+public struct PorkbunClient : Encodable {
     public var apikey:String
     public var secretapikey:String
+    public var jsonEncoder:JSONEncoder
 
     public init(
         apiKey: String,
-        secretAPIKey: String
+        secretAPIKey: String,
+        jsonEncoder: JSONEncoder = JSONEncoder()
     ) {
         self.apikey = apiKey
         self.secretapikey = secretAPIKey
+        self.jsonEncoder = jsonEncoder
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(apikey, forKey: .apikey)
+        try container.encode(secretapikey, forKey: .secretapikey)
     }
 
     func authenticatedResponse<T : Decodable>(forSlug slug: String) async throws -> T? {
-        let buffer:ByteBuffer = try ByteBuffer(bytes: JSONEncoder().encode(self))
+        let buffer = try ByteBuffer(bytes: jsonEncoder.encode(self))
         return try await authenticatedResponse(forSlug: slug, buffer: buffer)
     }
     func authenticatedResponse<T : Decodable>(forSlug slug: String, buffer: ByteBuffer) async throws -> T? {
@@ -38,6 +47,14 @@ public struct PorkbunClient : Codable {
         let r:ByteBuffer = try await result.body.collect(upTo: Int.max)
         print(String(buffer: r))
         return try r.getJSONDecodable(T.self, at: r.readerIndex, length: r.readableBytes)
+    }
+}
+
+// MARK: CodingKeys
+extension PorkbunClient {
+    public enum CodingKeys : CodingKey {
+        case apikey
+        case secretapikey
     }
 }
 
@@ -67,7 +84,7 @@ extension PorkbunClient {
         start: Int? = nil,
         includeLabels: Bool = false
     ) async throws -> Porkbun.Response.ListAll? {
-        let buffer:ByteBuffer = try ByteBuffer(data: JSONEncoder().encode(Porkbun.Domain.ListAll(apiKey: apikey, secretAPIKey: secretapikey, start: start, includeLabels: includeLabels)))
+        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.Domain.ListAll(apiKey: apikey, secretAPIKey: secretapikey, start: start, includeLabels: includeLabels)))
         return try await authenticatedResponse(forSlug: "domain/listAll", body: .bytes(buffer))
     }
 }
@@ -91,7 +108,7 @@ extension PorkbunClient {
         ttl: Int? = nil,
         prio: Int? = nil
     ) async throws -> Porkbun.Response.DNSCreateRecord? {
-        let buffer:ByteBuffer = try ByteBuffer(data: JSONEncoder().encode(Porkbun.DNS.CreateRecord(apikey: apikey, secretapikey: secretapikey, name: name, type: type, content: content, ttl: ttl?.description, prio: prio?.description)))
+        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.DNS.CreateRecord(apikey: apikey, secretapikey: secretapikey, name: name, type: type, content: content, ttl: ttl?.description, prio: prio?.description)))
         return try await authenticatedResponse(forSlug: "dns/create/" + domain, body: .bytes(buffer))
     }
 }
@@ -117,7 +134,22 @@ extension PorkbunClient {
         ttl: Int? = nil,
         prio: String? = nil
     ) async throws -> Porkbun.Response.DNSEditRecord? {
-        let buffer:ByteBuffer = try ByteBuffer(data: JSONEncoder().encode(Porkbun.DNS.EditRecord(apikey: apikey, secretapikey: secretapikey, name: name, type: type, content: content, ttl: ttl?.description, prio: prio?.description)))
+        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.DNS.EditRecord(apikey: apikey, secretapikey: secretapikey, name: name, type: type, content: content, ttl: ttl?.description, prio: prio?.description)))
         return try await authenticatedResponse(forSlug: "dns/edit/" + domain + "/\(id)", buffer: buffer)
+    }
+}
+
+// MARK: Check Domain
+extension PorkbunClient {
+    /// Check a domain's availability.
+    /// Please note that domain checks are rate limited and you will be notified of your limit when you cross it.
+    /// 
+    /// - Parameters:
+    ///   - domain: Domain you want to check.
+    public func checkDomain(
+        domain: String
+    ) async throws -> Porkbun.Response.CheckDomain? {
+        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.Domain.Check(apiKey: apikey, secretAPIKey: secretapikey, domain: domain)))
+        return try await authenticatedResponse(forSlug: "domain/checkDomain/" + domain, buffer: buffer)
     }
 }

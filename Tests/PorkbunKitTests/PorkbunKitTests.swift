@@ -12,8 +12,9 @@ import Testing
 
 @Test func example() async throws {
     try PorkbunAPIKeys.load()
-    let client:PorkbunClient = PorkbunClient(apiKey: PorkbunAPIKeys.apiKey, secretAPIKey: PorkbunAPIKeys.secretAPIKey)
-    let response = try await client.listAll()
+    let client = PorkbunClient(apiKey: PorkbunAPIKeys.apiKey, secretAPIKey: PorkbunAPIKeys.secretAPIKey)
+    let response = try await client.checkDomain(domain: "litleagues.com")
+    print("response=\(response)")
 }
 
 #endif
