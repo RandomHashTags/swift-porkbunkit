@@ -6,9 +6,14 @@
 //
 
 import AsyncHTTPClient
-import Foundation
 import NIOCore
 import NIOFoundationCompat
+
+#if canImport(FoundationEssentials)
+import FoundationEssentials
+#elseif canImport(Foundation)
+import Foundation
+#endif
 
 // MARK: PorkbunClient
 public struct PorkbunClient : Encodable {
@@ -16,14 +21,32 @@ public struct PorkbunClient : Encodable {
     public var secretapikey:String
     public var jsonEncoder:JSONEncoder
 
+    /// Subdomain of the Porkbun API you want to contact.
+    /// 
+    /// Default is `api`.
+    /// 
+    /// ## IPv4 Only Hostname
+    /// Some folks prefer to force IPv4, especially when using the ping command to get back an IP address for dynamic DNS clients.
+    /// The dedicated IPv4 hostname is `api-ipv4.porkbun.com`, so you would use `api-ipv4`.
+    public var apiSubdomain:String
+
+    /// Version of the Porkbun API you want to contact.
+    /// 
+    /// Default is `v3`.
+    public var apiVersion:String
+
     public init(
         apiKey: String,
         secretAPIKey: String,
-        jsonEncoder: JSONEncoder = JSONEncoder()
+        jsonEncoder: JSONEncoder = JSONEncoder(),
+        apiSubdomain: String = "api",
+        apiVersion: String = "v3"
     ) {
         self.apikey = apiKey
         self.secretapikey = secretAPIKey
         self.jsonEncoder = jsonEncoder
+        self.apiSubdomain = apiSubdomain
+        self.apiVersion = apiVersion
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -32,15 +55,37 @@ public struct PorkbunClient : Encodable {
         try container.encode(secretapikey, forKey: .secretapikey)
     }
 
-    func authenticatedResponse<T : Decodable>(forSlug slug: String) async throws -> T? {
+    func authenticatedResponse<T : Decodable>(slug: String) async throws -> T? {
         let buffer = try ByteBuffer(bytes: jsonEncoder.encode(self))
-        return try await authenticatedResponse(forSlug: slug, buffer: buffer)
+
+        return try await authenticatedResponse(
+            slug: slug,
+            buffer: buffer
+        )
     }
-    func authenticatedResponse<T : Decodable>(forSlug slug: String, buffer: ByteBuffer) async throws -> T? {
-        return try await authenticatedResponse(forSlug: slug, body: .bytes(buffer))
+    func authenticatedResponse<AR : Porkbun.AuthenticationRequired, T : Decodable>(
+        slug: String,
+        request: AR
+    ) async throws -> T? {
+        return try await authenticatedResponse(
+            slug: slug,
+            body: .bytes(ByteBuffer(data: jsonEncoder.encode(request)))
+        )
     }
-    func authenticatedResponse<T : Decodable>(forSlug slug: String, body: HTTPClientRequest.Body) async throws -> T? {
-        var request = HTTPClientRequest(url: "https://api.porkbun.com/api/json/v3/" + slug)
+    func authenticatedResponse<T : Decodable>(
+        slug: String,
+        buffer: ByteBuffer
+    ) async throws -> T? {
+        return try await authenticatedResponse(
+            slug: slug,
+            body: .bytes(buffer)
+        )
+    }
+    func authenticatedResponse<T : Decodable>(
+        slug: String,
+        body: HTTPClientRequest.Body
+    ) async throws -> T? {
+        var request = HTTPClientRequest(url: "https://\(apiSubdomain).porkbun.com/api/json/\(apiVersion)/" + slug)
         request.method = .POST
         request.body = body
         let result = try await HTTPClient.shared.execute(request, timeout: .seconds(30))
@@ -60,19 +105,19 @@ extension PorkbunClient {
 // MARK: Ping
 extension PorkbunClient {
     public func ping() async throws -> Porkbun.Response.Ping? {
-        return try await authenticatedResponse(forSlug: "ping")
+        return try await authenticatedResponse(slug: "ping")
     }
 }
 
-// MARK: GetNS
+// MARK: Name Servers
 extension PorkbunClient {
     /// - Returns: The authoritative name servers listed at the registry for the domain.
     public func nameServers(forDomain domain: String) async throws -> Porkbun.Response.GetNS? {
-        return try await authenticatedResponse(forSlug: "domain/getNs/" + domain)
+        return try await authenticatedResponse(slug: "domain/getNs/" + domain)
     }
 }
 
-// MARK: ListAll
+// MARK: List All
 extension PorkbunClient {
     /// Get all domain names for the account associated with the API keys. Domains are returned in chunks of 1000.
     /// 
@@ -83,12 +128,15 @@ extension PorkbunClient {
         start: Int? = nil,
         includeLabels: Bool = false
     ) async throws -> Porkbun.Response.ListAll? {
-        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.Domain.ListAll(apiKey: apikey, secretAPIKey: secretapikey, start: start, includeLabels: includeLabels)))
-        return try await authenticatedResponse(forSlug: "domain/listAll", body: .bytes(buffer))
+        let r = Porkbun.Domain.ListAll(apiKey: apikey, secretAPIKey: secretapikey, start: start, includeLabels: includeLabels)
+        return try await authenticatedResponse(
+            slug: "domain/listAll",
+            request: r
+        )
     }
 }
 
-// MARK: CreateRecord
+// MARK: Create Record
 extension PorkbunClient {
     /// Create a DNS record.
     /// 
@@ -107,12 +155,15 @@ extension PorkbunClient {
         ttl: Int? = nil,
         prio: Int? = nil
     ) async throws -> Porkbun.Response.DNSCreateRecord? {
-        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.DNS.CreateRecord(apikey: apikey, secretapikey: secretapikey, name: name, type: type, content: content, ttl: ttl?.description, prio: prio?.description)))
-        return try await authenticatedResponse(forSlug: "dns/create/" + domain, body: .bytes(buffer))
+        let r = Porkbun.DNS.CreateRecord(apikey: apikey, secretapikey: secretapikey, name: name, type: type, content: content, ttl: ttl?.description, prio: prio?.description)
+        return try await authenticatedResponse(
+            slug: "dns/create/" + domain,
+            request: r
+        )
     }
 }
 
-// MARK: EditRecord
+// MARK: Edit Record
 extension PorkbunClient {
     /// Edit a DNS record.
     /// 
@@ -133,12 +184,15 @@ extension PorkbunClient {
         ttl: Int? = nil,
         prio: String? = nil
     ) async throws -> Porkbun.Response.DNSEditRecord? {
-        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.DNS.EditRecord(apikey: apikey, secretapikey: secretapikey, name: name, type: type, content: content, ttl: ttl?.description, prio: prio?.description)))
-        return try await authenticatedResponse(forSlug: "dns/edit/" + domain + "/\(id)", buffer: buffer)
+        let r = Porkbun.DNS.EditRecord(apikey: apikey, secretapikey: secretapikey, name: name, type: type, content: content, ttl: ttl?.description, prio: prio?.description)
+        return try await authenticatedResponse(
+            slug: "dns/edit/" + domain + "/\(id)",
+            request: r
+        )
     }
 }
 
-// MARK: DeleteRecord
+// MARK: Delete Record
 extension PorkbunClient {
     /// Delete a specific DNS record.
     /// 
@@ -149,8 +203,11 @@ extension PorkbunClient {
         forDomain domain: String,
         id: Int
     ) async throws -> Porkbun.Response.DNSDeleteRecord? {
-        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.DNS.DeleteRecord(apikey: apikey, secretapikey: secretapikey, domain: domain, recordID: id)))
-        return try await authenticatedResponse(forSlug: "dns/delete/" + domain + "/\(id)", buffer: buffer)
+        let r = Porkbun.DNS.DeleteRecord(apikey: apikey, secretapikey: secretapikey, domain: domain, recordID: id)
+        return try await authenticatedResponse(
+            slug: "dns/delete/" + domain + "/\(id)",
+            request: r
+        )
     }
 }
 
@@ -164,7 +221,10 @@ extension PorkbunClient {
     public func checkDomain(
         domain: String
     ) async throws -> Porkbun.Response.CheckDomain? {
-        let buffer = try ByteBuffer(data: jsonEncoder.encode(Porkbun.Domain.Check(apikey: apikey, secretapikey: secretapikey, domain: domain)))
-        return try await authenticatedResponse(forSlug: "domain/checkDomain/" + domain, buffer: buffer)
+        let r = Porkbun.Domain.Check(apikey: apikey, secretapikey: secretapikey, domain: domain)
+        return try await authenticatedResponse(
+            slug: "domain/checkDomain/" + domain,
+            request: r
+        )
     }
 }
